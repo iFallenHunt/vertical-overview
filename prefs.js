@@ -1,6 +1,4 @@
-const __DEBUG__ = true;
-
-import { ExtensionPreferences } from 'resource:///org/gnome/shell/extensions/prefs.js';
+import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
 
@@ -30,22 +28,36 @@ const BuilderScope = GObject.registerClass({
 
     _onIntValueChanged(value) {
         const current = this._settings.get_int(value.name);
-        if (value.value !== current) {
-            if (__DEBUG__) console.log(`value-changed: ${value.name} -> ${value.value}`);
+        if (value.value !== current)
             this._settings.set_int(value.name, value.value);
-        }
     }
 
     _onBoolValueChanged(value) {
         const current = this._settings.get_boolean(value.name);
-        if (value.active !== current) {
-            if (__DEBUG__) console.log(`value-changed: ${value.name} -> ${value.active}`);
+        if (value.active !== current)
             this._settings.set_boolean(value.name, value.active);
-        }
     }
 });
 
-export default class VerticalOverviewPreferences extends ExtensionPreferences {
+export default class VerticalOverviewPreferences {
+    constructor(metadata) {
+        this.metadata = metadata;
+        this.path = metadata.path;
+    }
+
+    getSettings(schema) {
+        const GioSSS = Gio.SettingsSchemaSource;
+        const schemaSource = GioSSS.new_from_directory(
+            `${this.path}/schemas`,
+            GioSSS.get_default(),
+            false
+        );
+        const schemaObj = schemaSource.lookup(schema, true);
+        if (!schemaObj)
+            throw new Error(`Schema ${schema} could not be found`);
+        return new Gio.Settings({ settings_schema: schemaObj });
+    }
+
     getPreferencesWidget() {
         const settings = this.getSettings('org.gnome.shell.extensions.vertical-overview');
 
