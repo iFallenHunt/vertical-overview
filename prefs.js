@@ -1,3 +1,4 @@
+import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import Gtk from 'gi://Gtk';
@@ -58,12 +59,11 @@ export default class VerticalOverviewPreferences {
         return new Gio.Settings({ settings_schema: schemaObj });
     }
 
-    getPreferencesWidget() {
+    fillPreferencesWindow(window) {
         const settings = this.getSettings('org.gnome.shell.extensions.vertical-overview');
 
         const builder = new Gtk.Builder();
         builder.set_scope(new BuilderScope(settings));
-        builder.set_translation_domain('gettext-domain');
         builder.add_from_file(`${this.path}/settings.ui`);
 
         for (const key of settings.list_keys()) {
@@ -76,6 +76,10 @@ export default class VerticalOverviewPreferences {
             }
         }
 
-        return builder.get_object('main_widget');
+        const page = new Adw.PreferencesPage();
+        const group = new Adw.PreferencesGroup();
+        group.add(builder.get_object('main_widget'));
+        page.add(group);
+        window.add(page);
     }
 }
