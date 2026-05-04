@@ -20,12 +20,13 @@ export var ControlsState = {
 };
 
 export function override() {
+    // ControlsManagerLayout is not exported in GNOME Shell 45+; get prototype from live instance
+    const controlsManager = Main.overview._overview._controls;
     global.vertical_overview.GSFunctions['ControlsManagerLayout'] = Util.overrideProto(
-        OverviewControls.ControlsManagerLayout.prototype, ControlsManagerLayoutOverride);
+        Object.getPrototypeOf(controlsManager.layout_manager), ControlsManagerLayoutOverride);
     global.vertical_overview.GSFunctions['ControlsManager'] = Util.overrideProto(
         OverviewControls.ControlsManager.prototype, ControlsManagerOverride);
 
-    const controlsManager = Main.overview._overview._controls;
     global.vertical_overview._updateID = controlsManager._stateAdjustment.connect(
         'notify::value', _updateWorkspacesDisplay.bind(controlsManager));
     global.vertical_overview._workspaceDisplayVisibleID =
@@ -36,14 +37,14 @@ export function override() {
 }
 
 export function reset() {
+    const controlsManager = Main.overview._overview._controls;
     Util.overrideProto(
-        OverviewControls.ControlsManagerLayout.prototype,
+        Object.getPrototypeOf(controlsManager.layout_manager),
         global.vertical_overview.GSFunctions['ControlsManagerLayout']);
     Util.overrideProto(
         OverviewControls.ControlsManager.prototype,
         global.vertical_overview.GSFunctions['ControlsManager']);
 
-    const controlsManager = Main.overview._overview._controls;
     controlsManager._stateAdjustment.disconnect(global.vertical_overview._updateID);
     controlsManager._workspacesDisplay.disconnect(global.vertical_overview._workspaceDisplayVisibleID);
     controlsManager._workspacesDisplay.reactive = true;
@@ -129,7 +130,7 @@ var ControlsManagerLayoutOverride = {
         const workspaceBox = workAreaBox.copy();
         const [startX, startY] = workAreaBox.get_origin();
         const [width, height] = workspaceBox.get_size();
-        const { spacing } = this;
+        const spacing = this.spacing ?? 12;
         const { expandFraction } = this._workspacesThumbnails;
 
         switch (state) {
@@ -161,7 +162,7 @@ var ControlsManagerLayoutOverride = {
         const [startX, startY] = workAreaBox.get_origin();
         const [width, height] = workAreaBox.get_size();
         const appDisplayBox = new Clutter.ActorBox();
-        const { spacing } = this;
+        const spacing = this.spacing ?? 12;
 
         switch (state) {
         case ControlsState.HIDDEN:
@@ -177,12 +178,12 @@ var ControlsManagerLayoutOverride = {
         return appDisplayBox;
     },
 
-    vfunc_allocate(box) {
+    vfunc_allocate(container, box) {
         const childBox = new Clutter.ActorBox();
 
         let leftOffset = this.leftOffset;
         const rightOffset = this.rightOffset;
-        const { spacing } = this;
+        const spacing = this.spacing ?? 12;
 
         let startY = 0;
 
