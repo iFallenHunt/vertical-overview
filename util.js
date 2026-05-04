@@ -1,22 +1,19 @@
-const Gi = imports._gi;
-const Gio = imports.gi.Gio;
-const GioSSS = Gio.SettingsSchemaSource;
-const ExtensionUtils = imports.misc.extensionUtils;
+import Gio from 'gi://Gio';
 
-const Self = ExtensionUtils.getCurrentExtension();
+let _extension = null;
 
-function hookVfunc(proto, symbol, func) {
-    proto[Gi.hook_up_vfunc_symbol](symbol, func);
+export function init(extension) {
+    _extension = extension;
 }
 
-function overrideProto(proto, overrides) {
+export function overrideProto(proto, overrides) {
     const backup = {};
 
-    for (var symbol in overrides) {
+    for (const symbol in overrides) {
         if (symbol.startsWith('after_')) {
             const actualSymbol = symbol.slice('after_'.length);
             const fn = proto[actualSymbol];
-            const afterFn = overrides[symbol]
+            const afterFn = overrides[symbol];
             proto[actualSymbol] = function() {
                 const args = Array.prototype.slice.call(arguments);
                 const res = fn.apply(this, args);
@@ -24,54 +21,48 @@ function overrideProto(proto, overrides) {
                 return res;
             };
             backup[actualSymbol] = fn;
-        }
-        else {
+        } else {
             backup[symbol] = proto[symbol];
-            if (symbol.startsWith('vfunc')) {
-                hookVfunc(proto[Gi.gobject_prototype_symbol], symbol.slice(6), overrides[symbol]);
-            }
-            else {
-                proto[symbol] = overrides[symbol];
-            }
+            proto[symbol] = overrides[symbol];
         }
     }
     return backup;
 }
 
-function bindSetting(label, callback, executeOnBind = true) {
+export function bindSetting(label, callback, executeOnBind = true) {
     let settings = global.vertical_overview.settings;
     if (!settings) {
         settings = global.vertical_overview.settings = {
-            object: ExtensionUtils.getSettings('org.gnome.shell.extensions.vertical-overview'),
+            object: _extension.getSettings('org.gnome.shell.extensions.vertical-overview'),
             signals: {},
-            callbacks: {}
+            callbacks: {},
         };
     }
 
-
     if (settings.signals[label])
-        settings.object.disconnectObject(settings.signals[label]);
+        settings.object.disconnect(settings.signals[label]);
 
-    const signal = global.vertical_overview.settings.object.connectObject('changed::' + label, callback);
+    const signal = global.vertical_overview.settings.object.connect(
+        `changed::${label}`, callback);
     global.vertical_overview.settings.signals[label] = signal;
     settings.callbacks[label] = callback;
 
-    if (executeOnBind) callback(settings.object, label);
+    if (executeOnBind)
+        callback(settings.object, label);
     return signal;
 }
 
-function unbindSetting(label, callback) {
-    let settings = global.vertical_overview.settings;
+export function unbindSetting(label, callback) {
+    const settings = global.vertical_overview.settings;
     if (!settings || !settings.signals[label])
         return;
 
     if (callback)
         callback(settings.object, label);
 
-    settings.object.disconnectObject(settings.signals[label]);
+    settings.object.disconnect(settings.signals[label]);
     delete settings.signals[label];
 
-    if (settings.callbacks[label]) {
+    if (settings.callbacks[label])
         delete settings.callbacks[label];
-    }
 }

@@ -1,16 +1,21 @@
 const __DEBUG__ = true;
-const { GObject, Gtk } = imports.gi;
-const ExtensionUtils = imports.misc.extensionUtils;
-const Self = ExtensionUtils.getCurrentExtension();
-const Util = Self.imports.util;
+
+import { ExtensionPreferences } from 'resource:///org/gnome/shell/extensions/prefs.js';
+import GObject from 'gi://GObject';
+import Gtk from 'gi://Gtk';
 
 const BuilderScope = GObject.registerClass({
     GTypeName: 'VerticalOverviewBuilderScope',
     Implements: [Gtk.BuilderScope],
 }, class BuilderScope extends GObject.Object {
-    _init() {
-        super._init()
-        this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.vertical-overview');
+    constructor(settings) {
+        super();
+        this._settings = settings;
+    }
+
+    _init(settings) {
+        super._init();
+        this._settings = settings;
     }
 
     vfunc_create_closure(builder, handlerName, flags, connectObject) {
@@ -24,41 +29,41 @@ const BuilderScope = GObject.registerClass({
     }
 
     _onIntValueChanged(value) {
-        let current = this.settings.get_int(value.name);
-        if (value.value != current) {
-            if (__DEBUG__) log('value-changed: ' + value.name + " -> " + value.value);
-            this.settings.set_int(value.name, value.value);
+        const current = this._settings.get_int(value.name);
+        if (value.value !== current) {
+            if (__DEBUG__) console.log(`value-changed: ${value.name} -> ${value.value}`);
+            this._settings.set_int(value.name, value.value);
         }
     }
 
     _onBoolValueChanged(value) {
-        let current = this.settings.get_boolean(value.name);
-        if (value.active != current) {
-            if (__DEBUG__) log('value-changed: ' + value.name + " -> " + value.active);
-            this.settings.set_boolean(value.name, value.active);
+        const current = this._settings.get_boolean(value.name);
+        if (value.active !== current) {
+            if (__DEBUG__) console.log(`value-changed: ${value.name} -> ${value.active}`);
+            this._settings.set_boolean(value.name, value.active);
         }
     }
 });
 
-function init() { }
+export default class VerticalOverviewPreferences extends ExtensionPreferences {
+    getPreferencesWidget() {
+        const settings = this.getSettings('org.gnome.shell.extensions.vertical-overview');
 
-function buildPrefsWidget() {
+        const builder = new Gtk.Builder();
+        builder.set_scope(new BuilderScope(settings));
+        builder.set_translation_domain('gettext-domain');
+        builder.add_from_file(`${this.path}/settings.ui`);
 
-    let builder = new Gtk.Builder();
-
-    builder.set_scope(new BuilderScope());
-    builder.set_translation_domain('gettext-domain');
-    builder.add_from_file(Self.dir.get_path() + '/settings.ui');
-
-    let settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.vertical-overview');
-    for (var key of settings.list_keys()) {
-        let obj = builder.get_object(key);
-        let value = settings.get_value(key);
-        switch (value.get_type_string()) {
-            case "i": obj.set_property('value', value.get_int32()); break;
-            case "b": obj.set_property('active', value.get_boolean()); break;
+        for (const key of settings.list_keys()) {
+            const obj = builder.get_object(key);
+            if (!obj) continue;
+            const value = settings.get_value(key);
+            switch (value.get_type_string()) {
+            case 'i': obj.set_property('value', value.get_int32()); break;
+            case 'b': obj.set_property('active', value.get_boolean()); break;
+            }
         }
-    }
 
-    return builder.get_object('main_widget');
+        return builder.get_object('main_widget');
+    }
 }
